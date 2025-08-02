@@ -81,8 +81,17 @@ app.get('/', (req, res) => {
     <body class="bg-gray-900">
       <div id="root"></div>
       <script type="text/babel">
-        // Esperamos a que la página cargue completamente para ejecutar el código React
-        window.onload = function() {
+        // Función que espera a que la biblioteca lucideReact esté disponible
+        function waitForLucide(callback) {
+          if (typeof window.lucideReact !== 'undefined') {
+            callback();
+          } else {
+            setTimeout(() => waitForLucide(callback), 50);
+          }
+        }
+
+        // Ejecutamos el código React solo cuando la dependencia esté lista
+        waitForLucide(() => {
           const { useState, useEffect, useRef } = React;
           const { Mic, MicOff, Video, VideoOff, ScreenShare, MessageSquare, Send, X, LogIn } = lucideReact;
 
@@ -448,7 +457,7 @@ app.get('/', (req, res) => {
           const container = document.getElementById('root');
           const root = ReactDOM.createRoot(container);
           root.render(<App />);
-        };
+        });
       </script>
     </body>
     </html>
