@@ -171,27 +171,27 @@ app.get('/', (req, res) => {
                     secure: new URL(SERVER_URL).protocol === 'https:'
                   });
                   myPeerRef.current.on('open', id => {
-                    console.log(\`Mi Peer ID es: ${id}\`);
+                    console.log(\`Mi Peer ID es: \${id}\`);
                     socketRef.current.emit('join-room', roomId, id, userName);
                   });
                   myPeerRef.current.on('call', call => {
-                    console.log(\`Recibiendo llamada de: ${call.peer}\`);
+                    console.log(\`Recibiendo llamada de: \${call.peer}\`);
                     call.answer(stream);
                     call.on('stream', userVideoStream => {
-                      console.log(\`Stream recibido de: ${call.peer}\`);
+                      console.log(\`Stream recibido de: \${call.peer}\`);
                       setPeerStreams(prev => {
                         if (prev.some(p => p.peerId === call.peer)) return prev;
                         return [...prev, { stream: userVideoStream, peerId: call.peer }];
                       });
                     });
                     call.on('close', () => {
-                      console.log(\`Conexión cerrada con: ${call.peer}\`);
+                      console.log(\`Conexión cerrada con: \${call.peer}\`);
                       setPeerStreams(prev => prev.filter(p => p.peerId !== call.peer));
                     });
                   });
                   socketRef.current.on('user-joined', ({ userId, userName: remoteUserName }) => {
-                    console.log(\`Nuevo usuario se unió: ${remoteUserName} (${userId})\`);
-                    setChatMessages(prev => [...prev, { user: 'Sistema', text: \`${remoteUserName} se ha unido.\`, id: Date.now() }]);
+                    console.log(\`Nuevo usuario se unió: \${remoteUserName} (\${userId})\`);
+                    setChatMessages(prev => [...prev, { user: 'Sistema', text: remoteUserName + ' se ha unido.', id: Date.now() }]);
                     setPeerUserNames(prev => ({ ...prev, [userId]: remoteUserName }));
                   });
                   socketRef.current.on('all-users', (existingUsers) => {
@@ -204,8 +204,8 @@ app.get('/', (req, res) => {
                     });
                   });
                   socketRef.current.on('user-disconnected', (userId, disconnectedUserName) => {
-                    console.log(\`Usuario desconectado: ${disconnectedUserName} (${userId})\`);
-                    setChatMessages(prev => [...prev, { user: 'Sistema', text: \`${disconnectedUserName} se ha ido.\`, id: Date.now() }]);
+                    console.log(\`Usuario desconectado: \${disconnectedUserName} (\${userId})\`);
+                    setChatMessages(prev => [...prev, { user: 'Sistema', text: disconnectedUserName + ' se ha ido.', id: Date.now() }]);
                     if (peersRef.current[userId]) {
                       peersRef.current[userId].close();
                       const { [userId]: removedPeer, ...newPeers } = peersRef.current;
@@ -234,7 +234,7 @@ app.get('/', (req, res) => {
             const connectToNewUser = (userId, stream) => {
               const call = myPeerRef.current.call(userId, stream);
               call.on('stream', userVideoStream => {
-                console.log(\`Stream enviado y recibido de: ${userId}\`);
+                console.log(\`Stream enviado y recibido de: \${userId}\`);
                 setPeerStreams(prev => {
                   if (prev.some(p => p.peerId === userId)) return prev;
                   return [...prev, { stream: userVideoStream, peerId: userId }];
