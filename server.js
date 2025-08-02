@@ -57,7 +57,7 @@ io.on('connection', socket => {
         console.log(`Mensaje de ${socket.userName} en ${socket.room}: ${message}`);
     });
 
-    // --- ¡NUEVO! Manejar reacciones ---
+    // --- Manejar reacciones ---
     socket.on('reaction', (emoji) => {
         // Emite la reacción (emoji y nombre del usuario) a todos en la sala
         io.to(socket.room).emit('reaction-received', emoji, socket.userName);
