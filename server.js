@@ -40,7 +40,7 @@ io.on('connection', socket => {
 
     // Manejar desconexión
     socket.on('disconnect', () => {
-      console.log(`Usuario desconectado: ${userName} (${userId})`);
+      console.log('Usuario desconectado: ' + userName + ' (' + userId + ')');
       usersInRoom[roomId] = usersInRoom[roomId].filter(user => user.userId !== userId);
       socket.to(roomId).emit('user-disconnected', userId, userName);
     });
@@ -81,19 +81,12 @@ app.get('/', (req, res) => {
     <body class="bg-gray-900">
       <div id="root"></div>
       <script type="text/babel">
-        // Función que espera a que la biblioteca lucideReact esté disponible
-        function waitForLucide(callback) {
-          if (typeof window.lucideReact !== 'undefined') {
-            callback();
-          } else {
-            setTimeout(() => waitForLucide(callback), 50);
-          }
-        }
-
-        // Ejecutamos el código React solo cuando la dependencia esté lista
-        waitForLucide(() => {
+        // Se espera a que la página se cargue por completo para asegurar que todos los scripts estén disponibles.
+        window.onload = function() {
           const { useState, useEffect, useRef } = React;
-          const { Mic, MicOff, Video, VideoOff, ScreenShare, MessageSquare, Send, X, LogIn } = lucideReact;
+          const { Mic, MicOff, Video, VideoOff, ScreenShare, MessageSquare, Send, X, LogIn } = window.lucideReact;
+
+          console.log('La aplicación React se está renderizando.');
 
           const SERVER_URL = '${SERVER_URL}';
 
@@ -180,26 +173,26 @@ app.get('/', (req, res) => {
                     secure: new URL(SERVER_URL).protocol === 'https:'
                   });
                   myPeerRef.current.on('open', id => {
-                    console.log(\`Mi Peer ID es: \${id}\`);
+                    console.log('Mi Peer ID es: ' + id);
                     socketRef.current.emit('join-room', roomId, id, userName);
                   });
                   myPeerRef.current.on('call', call => {
-                    console.log(\`Recibiendo llamada de: \${call.peer}\`);
+                    console.log('Recibiendo llamada de: ' + call.peer);
                     call.answer(stream);
                     call.on('stream', userVideoStream => {
-                      console.log(\`Stream recibido de: \${call.peer}\`);
+                      console.log('Stream recibido de: ' + call.peer);
                       setPeerStreams(prev => {
                         if (prev.some(p => p.peerId === call.peer)) return prev;
                         return [...prev, { stream: userVideoStream, peerId: call.peer }];
                       });
                     });
                     call.on('close', () => {
-                      console.log(\`Conexión cerrada con: \${call.peer}\`);
+                      console.log('Conexión cerrada con: ' + call.peer);
                       setPeerStreams(prev => prev.filter(p => p.peerId !== call.peer));
                     });
                   });
                   socketRef.current.on('user-joined', ({ userId, userName: remoteUserName }) => {
-                    console.log(\`Nuevo usuario se unió: \${remoteUserName} (\${userId})\`);
+                    console.log('Nuevo usuario se unió: ' + remoteUserName + ' (' + userId + ')');
                     setChatMessages(prev => [...prev, { user: 'Sistema', text: remoteUserName + ' se ha unido.', id: Date.now() }]);
                     setPeerUserNames(prev => ({ ...prev, [userId]: remoteUserName }));
                   });
@@ -213,7 +206,7 @@ app.get('/', (req, res) => {
                     });
                   });
                   socketRef.current.on('user-disconnected', (userId, disconnectedUserName) => {
-                    console.log(\`Usuario desconectado: \${disconnectedUserName} (\${userId})\`);
+                    console.log('Usuario desconectado: ' + disconnectedUserName + ' (' + userId + ')');
                     setChatMessages(prev => [...prev, { user: 'Sistema', text: disconnectedUserName + ' se ha ido.', id: Date.now() }]);
                     if (peersRef.current[userId]) {
                       peersRef.current[userId].close();
@@ -243,7 +236,7 @@ app.get('/', (req, res) => {
             const connectToNewUser = (userId, stream) => {
               const call = myPeerRef.current.call(userId, stream);
               call.on('stream', userVideoStream => {
-                console.log(\`Stream enviado y recibido de: \${userId}\`);
+                console.log('Stream enviado y recibido de: ' + userId);
                 setPeerStreams(prev => {
                   if (prev.some(p => p.peerId === userId)) return prev;
                   return [...prev, { stream: userVideoStream, peerId: userId }];
@@ -457,7 +450,7 @@ app.get('/', (req, res) => {
           const container = document.getElementById('root');
           const root = ReactDOM.createRoot(container);
           root.render(<App />);
-        });
+        };
       </script>
     </body>
     </html>
