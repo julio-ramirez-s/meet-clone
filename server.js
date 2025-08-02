@@ -1,22 +1,30 @@
 const express = require('express');
+const cors = require('cors'); // <-- 1. IMPORTA CORS
 const app = express();
 const server = require('http').Server(app);
-const io = require('socket.io')(server, {
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
-});
 const { ExpressPeerServer } = require('peer');
 
+// --- Configuración de CORS ---
+// 2. DEFINE LAS OPCIONES DE CORS
+const corsOptions = {
+  origin: 'https://meet-front.onrender.com', // La URL de tu frontend
+  methods: ['GET', 'POST']
+};
+
+app.use(cors(corsOptions)); // <-- 3. APLICA CORS A TODA LA APP DE EXPRESS
+
+// --- Configuración de Socket.IO (ya la tenías bien, pero usamos las mismas opciones) ---
+const io = require('socket.io')(server, {
+  cors: corsOptions 
+});
+
+// --- Configuración de PeerJS ---
 const peerServer = ExpressPeerServer(server, {
   path: '/myapp'
 });
 app.use('/peerjs', peerServer);
 
-// Este servidor solo manejará las conexiones, por lo que no necesita servir archivos estáticos.
-// En Render, el servicio estático se encargará de ello.
-
+// --- Lógica de la aplicación ---
 const usersInRoom = {};
 
 io.on('connection', socket => {
@@ -27,8 +35,10 @@ io.on('connection', socket => {
       usersInRoom[roomId] = [];
     }
 
+    // Envía la lista de usuarios existentes solo al nuevo usuario
     socket.emit('all-users', usersInRoom[roomId]);
 
+    // Añade el nuevo usuario a la lista y notifica a los demás
     usersInRoom[roomId].push({ userId, userName });
     socket.to(roomId).emit('user-joined', { userId, userName });
 
