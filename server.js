@@ -24,7 +24,6 @@ const peerServer = ExpressPeerServer(server, {
 app.use('/peerjs', peerServer);
 
 // --- Lógica de la aplicación ---
-// Almacena los usuarios en cada sala (mejorado para guardar userId y userName en el socket)
 const usersInRoom = {};
 
 io.on('connection', socket => {
@@ -32,7 +31,6 @@ io.on('connection', socket => {
 
     socket.on('join-room', (roomId, userId, userName) => {
         socket.join(roomId);
-        // Almacena la información del usuario y la sala directamente en el objeto socket
         socket.userId = userId; 
         socket.userName = userName; 
         socket.room = roomId; 
@@ -41,30 +39,23 @@ io.on('connection', socket => {
             usersInRoom[roomId] = [];
         }
 
-        // Envía la lista de usuarios existentes solo al nuevo usuario
         socket.emit('all-users', usersInRoom[roomId]);
 
-        // Añade el nuevo usuario a la lista y notifica a los demás
         usersInRoom[roomId].push({ userId, userName });
         socket.to(roomId).emit('user-joined', { userId, userName });
         console.log(`Usuario ${userName} (${userId}) se unió a la sala ${roomId}`);
     });
 
-    // Cuando un usuario envía un mensaje de chat
     socket.on('message', message => {
-        // Usa socket.userName que ya está almacenado
         io.to(socket.room).emit('createMessage', message, socket.userName);
         console.log(`Mensaje de ${socket.userName} en ${socket.room}: ${message}`);
     });
 
-    // --- Manejar reacciones ---
     socket.on('reaction', (emoji) => {
-        // Emite la reacción (emoji y nombre del usuario) a todos en la sala
         io.to(socket.room).emit('reaction-received', emoji, socket.userName);
         console.log(`Reacción de ${socket.userName} en la sala ${socket.room}: ${emoji}`);
     });
 
-    // Puedes añadir eventos para compartir pantalla si tu frontend los emite
     socket.on('screen-share-started', () => {
         io.to(socket.room).emit('screen-share-active', socket.userId, socket.userName);
         console.log(`${socket.userName} inició la compartición de pantalla.`);
@@ -78,9 +69,8 @@ io.on('connection', socket => {
 
     socket.on('disconnect', () => {
         console.log('User disconnected: ' + socket.userName + ' (' + socket.userId + ')');
-        if (socket.room && socket.userId) { // Asegúrate de que los datos existen antes de filtrar
+        if (socket.room && socket.userId) { 
             usersInRoom[socket.room] = usersInRoom[socket.room].filter(user => user.userId !== socket.userId);
-            // Notifica a los demás usuarios en la sala que alguien se desconectó
             socket.to(socket.room).emit('user-disconnected', socket.userId, socket.userName);
             console.log(`Usuario ${socket.userName} (${socket.userId}) se desconectó de la sala ${socket.room}`);
         }
