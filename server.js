@@ -41,7 +41,7 @@ io.on('connection', socket => {
 
     // Manejar desconexión
     socket.on('disconnect', () => {
-      console.log(`Usuario desconectado: ${userName} (${userId})`);
+      console.log('Usuario desconectado: ' + userName + ' (' + userId + ')');
       usersInRoom[roomId] = usersInRoom[roomId].filter(user => user.userId !== userId);
       socket.to(roomId).emit('user-disconnected', userId, userName);
     });
@@ -62,8 +62,10 @@ app.get('/', (req, res) => {
       <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
       <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
       <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+      <!-- Enlaces CDN corregidos -->
+      <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
       <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+      <script src="https://unpkg.com/lucide-react@0.418.0/dist/umd/lucide-react.umd.js"></script>
       <style>
         .custom-scrollbar::-webkit-scrollbar {
           width: 8px;
@@ -76,7 +78,6 @@ app.get('/', (req, res) => {
           border-radius: 4px;
         }
       </style>
-      <script src="https://cdn.jsdelivr.net/npm/lucide-react@0.418.0/dist/lucide-react.umd.min.js"></script>
     </head>
     <body class="bg-gray-900">
       <div id="root"></div>
@@ -454,5 +455,5 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-  console.log(`Servidor escuchando en el puerto ${PORT}`);
+  console.log('Servidor escuchando en el puerto ' + PORT);
 });
