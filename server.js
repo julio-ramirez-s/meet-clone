@@ -169,27 +169,27 @@ app.get('/', (req, res) => {
                   secure: new URL(SERVER_URL).protocol === 'https:'
                 });
                 myPeerRef.current.on('open', id => {
-                  console.log(\`Mi Peer ID es: ${id}\`);
+                  console.log('Mi Peer ID es: ' + id);
                   socketRef.current.emit('join-room', roomId, id, userName);
                 });
                 myPeerRef.current.on('call', call => {
-                  console.log(\`Recibiendo llamada de: ${call.peer}\`);
+                  console.log('Recibiendo llamada de: ' + call.peer);
                   call.answer(stream);
                   call.on('stream', userVideoStream => {
-                    console.log(\`Stream recibido de: ${call.peer}\`);
+                    console.log('Stream recibido de: ' + call.peer);
                     setPeerStreams(prev => {
                       if (prev.some(p => p.peerId === call.peer)) return prev;
                       return [...prev, { stream: userVideoStream, peerId: call.peer }];
                     });
                   });
                   call.on('close', () => {
-                    console.log(\`Conexión cerrada con: ${call.peer}\`);
+                    console.log('Conexión cerrada con: ' + call.peer);
                     setPeerStreams(prev => prev.filter(p => p.peerId !== call.peer));
                   });
                 });
                 socketRef.current.on('user-joined', ({ userId, userName: remoteUserName }) => {
-                  console.log(\`Nuevo usuario se unió: ${remoteUserName} (${userId})\`);
-                  setChatMessages(prev => [...prev, { user: 'Sistema', text: \`${remoteUserName} se ha unido.\`, id: Date.now() }]);
+                  console.log('Nuevo usuario se unió: ' + remoteUserName + ' (' + userId + ')');
+                  setChatMessages(prev => [...prev, { user: 'Sistema', text: remoteUserName + ' se ha unido.', id: Date.now() }]);
                   setPeerUserNames(prev => ({ ...prev, [userId]: remoteUserName }));
                 });
                 socketRef.current.on('all-users', (existingUsers) => {
@@ -202,8 +202,8 @@ app.get('/', (req, res) => {
                   });
                 });
                 socketRef.current.on('user-disconnected', (userId, disconnectedUserName) => {
-                  console.log(\`Usuario desconectado: ${disconnectedUserName} (${userId})\`);
-                  setChatMessages(prev => [...prev, { user: 'Sistema', text: \`${disconnectedUserName} se ha ido.\`, id: Date.now() }]);
+                  console.log('Usuario desconectado: ' + disconnectedUserName + ' (' + userId + ')');
+                  setChatMessages(prev => [...prev, { user: 'Sistema', text: disconnectedUserName + ' se ha ido.', id: Date.now() }]);
                   if (peersRef.current[userId]) {
                     peersRef.current[userId].close();
                     const { [userId]: removedPeer, ...newPeers } = peersRef.current;
@@ -232,7 +232,7 @@ app.get('/', (req, res) => {
           const connectToNewUser = (userId, stream) => {
             const call = myPeerRef.current.call(userId, stream);
             call.on('stream', userVideoStream => {
-              console.log(\`Stream enviado y recibido de: ${userId}\`);
+              console.log('Stream enviado y recibido de: ' + userId);
               setPeerStreams(prev => {
                 if (prev.some(p => p.peerId === userId)) return prev;
                 return [...prev, { stream: userVideoStream, peerId: userId }];
@@ -371,8 +371,8 @@ app.get('/', (req, res) => {
           }
 
           return (
-            <div className="flex flex-col md:flex-row h-screen bg-gray-900 text-white font-sans">
-              <main className={\`flex flex-col flex-grow \${isChatOpen ? 'md:mr-80' : ''}\`}>
+            <div className={'flex flex-col md:flex-row h-screen bg-gray-900 text-white font-sans'}>
+              <main className={'flex flex-col flex-grow ' + (isChatOpen ? 'md:mr-80' : '')}>
                 <div id="video-grid" className="flex-grow grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
                   {myStream && <VideoComponent stream={myStream} muted={true} userName={userName} />}
                   {peerStreams.map((peer) => (
@@ -382,14 +382,14 @@ app.get('/', (req, res) => {
                 <footer className="bg-gray-800 p-4 flex justify-center items-center space-x-2 md:space-x-4">
                   <button
                     onClick={toggleMute}
-                    className={\`px-4 py-2 rounded-full text-xs md:text-base transition-colors duration-200 shadow-md flex items-center justify-center space-x-2 \${isMuted ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-600 hover:bg-gray-500'}\`}
+                    className={'px-4 py-2 rounded-full text-xs md:text-base transition-colors duration-200 shadow-md flex items-center justify-center space-x-2 ' + (isMuted ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-600 hover:bg-gray-500')}
                   >
                     {isMuted ? <MicOff /> : <Mic />}
                     <span className="hidden md:inline">{isMuted ? 'Activar' : 'Silenciar'}</span>
                   </button>
                   <button
                     onClick={toggleVideo}
-                    className={\`px-4 py-2 rounded-full text-xs md:text-base transition-colors duration-200 shadow-md flex items-center justify-center space-x-2 \${isVideoOff ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-600 hover:bg-gray-500'}\`}
+                    className={'px-4 py-2 rounded-full text-xs md:text-base transition-colors duration-200 shadow-md flex items-center justify-center space-x-2 ' + (isVideoOff ? 'bg-red-600 hover:bg-red-500' : 'bg-gray-600 hover:bg-gray-500')}
                   >
                     {isVideoOff ? <VideoOff /> : <Video />}
                     <span className="hidden md:inline">{isVideoOff ? 'Activar' : 'Detener'}</span>
@@ -403,14 +403,14 @@ app.get('/', (req, res) => {
                   </button>
                   <button
                     onClick={() => setIsChatOpen(!isChatOpen)}
-                    className={\`px-4 py-2 rounded-full text-xs md:text-base transition-colors duration-200 shadow-md flex items-center justify-center space-x-2 \${isChatOpen ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-gray-600 hover:bg-gray-500'}\`}
+                    className={'px-4 py-2 rounded-full text-xs md:text-base transition-colors duration-200 shadow-md flex items-center justify-center space-x-2 ' + (isChatOpen ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-gray-600 hover:bg-gray-500')}
                   >
                     <MessageSquare />
                     <span className="hidden md:inline">Chat</span>
                   </button>
                 </footer>
               </main>
-              <aside className={\`fixed top-0 right-0 h-full w-full md:w-80 bg-gray-800 flex flex-col transform transition-transform duration-300 ease-in-out z-50 \${isChatOpen ? 'translate-x-0' : 'translate-x-full'}\`}>
+              <aside className={'fixed top-0 right-0 h-full w-full md:w-80 bg-gray-800 flex flex-col transform transition-transform duration-300 ease-in-out z-50 ' + (isChatOpen ? 'translate-x-0' : 'translate-x-full')}>
                 <div className="p-4 flex items-center justify-between border-b border-gray-700">
                   <h2 className="text-lg md:text-xl font-bold">Chat</h2>
                   <button onClick={() => setIsChatOpen(false)} className="text-white hover:text-gray-400">
