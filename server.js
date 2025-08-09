@@ -12,6 +12,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions)); 
 
+// --- Middleware para parsear JSON en el cuerpo de las solicitudes HTTP ---
+app.use(express.json());
+
 // --- Configuración de Socket.IO ---
 const io = require('socket.io')(server, {
     cors: corsOptions 
@@ -23,7 +26,44 @@ const peerServer = ExpressPeerServer(server, {
 });
 app.use('/peerjs', peerServer);
 
-// --- Lógica de la aplicación ---
+// --- Almacenamiento de usuarios en memoria (NO USAR EN PRODUCCIÓN) ---
+const users = {}; // { username: { password, accessCode } }
+
+// --- Rutas de Autenticación HTTP ---
+app.post('/register', (req, res) => {
+    const { username, password, accessCode } = req.body;
+
+    if (!username || !password || !accessCode) {
+        return res.status(400).json({ message: 'Nombre de usuario, contraseña y código de acceso son requeridos.' });
+    }
+
+    if (users[username]) {
+        return res.status(409).json({ message: 'El nombre de usuario ya existe.' });
+    }
+
+    users[username] = { password, accessCode };
+    console.log(`Usuario registrado: ${username}`);
+    return res.status(201).json({ message: 'Registro exitoso. Ahora puedes iniciar sesión.' });
+});
+
+app.post('/login', (req, res) => {
+    const { username, password, accessCode } = req.body;
+
+    if (!username || !password || !accessCode) {
+        return res.status(400).json({ message: 'Nombre de usuario, contraseña y código de acceso son requeridos.' });
+    }
+
+    const user = users[username];
+    if (user && user.password === password && user.accessCode === accessCode) {
+        // En una aplicación real, aquí generarías un token JWT
+        return res.status(200).json({ message: 'Inicio de sesión exitoso.', username });
+    } else {
+        return res.status(401).json({ message: 'Credenciales inválidas.' });
+    }
+});
+
+
+// --- Lógica de la aplicación Socket.IO ---
 const usersInRoom = {}; // { roomId: [{ userId, userName }, ...] }
 
 io.on('connection', socket => {
@@ -65,21 +105,18 @@ io.on('connection', socket => {
 
     // Evento cuando un usuario inicia la compartición de pantalla
     socket.on('start-screen-share', (userId, userName) => {
-        // Renombrado de 'screen-share-active' a 'user-started-screen-share' para consistencia con el cliente
         io.to(socket.room).emit('user-started-screen-share', { userId, userName });
         console.log(`${userName} inició la compartición de pantalla.`);
     });
 
     // Evento cuando un usuario detiene la compartición de pantalla
     socket.on('stop-screen-share', (userId) => {
-        // Renombrado de 'screen-share-inactive' a 'user-stopped-screen-share' para consistencia con el cliente
         io.to(socket.room).emit('user-stopped-screen-share', userId);
         console.log(`${socket.userName} detuvo la compartición de pantalla.`);
     });
 
     // Nuevo evento para manejar el cambio de tema
     socket.on('change-theme', (theme) => {
-        // Broadcast the new theme to all users in the room
         io.to(socket.room).emit('theme-changed', theme);
         console.log(`Tema cambiado a ${theme} por ${socket.userName} en la sala ${socket.room}.`);
     });
@@ -87,9 +124,8 @@ io.on('connection', socket => {
 
     socket.on('disconnect', () => {
         console.log('User disconnected: ' + socket.userName + ' (' + socket.userId + ')');
-        if (socket.room && socket.userId) { // Asegúrate de que socket.room y socket.userId estén definidos
+        if (socket.room && socket.userId) { 
             usersInRoom[socket.room] = usersInRoom[socket.room].filter(user => user.userId !== socket.userId);
-            // Emitir a todos en la sala que un usuario se desconectó
             socket.to(socket.room).emit('user-disconnected', socket.userId, socket.userName);
             console.log(`Usuario ${socket.userName} (${socket.userId}) abandonó la sala ${socket.room}.`);
             console.log(`Usuarios restantes en la sala ${socket.room}:`, usersInRoom[socket.room].map(u => u.userName));
