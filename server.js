@@ -8,8 +8,10 @@ const bcrypt = require('bcryptjs'); // Importar bcryptjs para hashing de contras
 
 // --- Configuración de CORS ---
 const corsOptions = {
-    origin: 'https://meet-front.onrender.com', // La URL de tu frontend
-    methods: ['GET', 'POST']
+    // Asegúrate de que esta URL coincida exactamente con la URL de tu frontend desplegado
+    origin: 'https://meet-front.onrender.com', 
+    methods: ['GET', 'POST', 'PUT', 'DELETE'], // Añadir otros métodos si los usas
+    credentials: true // Importante para cookies, headers de autorización, etc.
 };
 
 app.use(cors(corsOptions)); 
@@ -30,20 +32,30 @@ app.use('/peerjs', peerServer);
 const MONGODB_URI = "mongodb+srv://julioramirezs2008:JDRS2008@cluster0.mvtvanq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
 
 mongoose.connect(MONGODB_URI)
-    .then(() => console.log('Conectado a MongoDB Atlas'))
-    .catch(err => console.error('Error al conectar a MongoDB:', err));
+    .then(() => console.log('✅ Conectado a MongoDB Atlas'))
+    .catch(err => {
+        console.error('❌ Error al conectar a MongoDB:', err);
+        // Opcional: Salir del proceso si la conexión a la DB falla críticamente
+        // process.exit(1); 
+    });
 
 // --- Esquema y Modelo de Usuario ---
 const userSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true },
+    username: { type: String, required: true, unique: true, trim: true },
     password: { type: String, required: true },
-    accessCode: { type: String, required: true } // Campo para el código de acceso
-});
+    accessCode: { type: String, required: true } 
+}, { timestamps: true }); // Añadir timestamps para ver cuándo se creó/actualizó el usuario
 
 // Middleware para hashear la contraseña antes de guardar
 userSchema.pre('save', async function (next) {
     if (this.isModified('password')) {
-        this.password = await bcrypt.hash(this.password, 10);
+        try {
+            const salt = await bcrypt.genSalt(10); // Generar un salt
+            this.password = await bcrypt.hash(this.password, salt); // Hashear la contraseña
+        } catch (error) {
+            console.error('Error al hashear la contraseña:', error);
+            return next(error); // Pasar el error al siguiente middleware
+        }
     }
     next();
 });
@@ -51,8 +63,9 @@ userSchema.pre('save', async function (next) {
 const User = mongoose.model('User', userSchema);
 
 // --- Lógica de la aplicación ---
-const usersInRoom = {};
-const GLOBAL_ACCESS_CODE = "MundiLink2025"; // Código de acceso global para unirse a la app
+// El código de acceso debe ser el mismo para todos los usuarios que quieran registrarse.
+// Considera mover esto a una variable de entorno para producción.
+const GLOBAL_ACCESS_CODE = "MundiLink2025"; 
 
 // --- Rutas de Autenticación ---
 
@@ -60,8 +73,10 @@ const GLOBAL_ACCESS_CODE = "MundiLink2025"; // Código de acceso global para uni
 app.post('/register', async (req, res) => {
     const { username, password, accessCode } = req.body;
 
-    // Verificar si el accessCode coincide con el código global o uno específico si hubiera
-    // En este caso, el accessCode ingresado por el usuario debe coincidir con GLOBAL_ACCESS_CODE
+    if (!username || !password || !accessCode) {
+        return res.status(400).json({ message: 'Todos los campos son obligatorios.' });
+    }
+
     if (accessCode !== GLOBAL_ACCESS_CODE) {
         return res.status(400).json({ message: 'Código de acceso incorrecto.' });
     }
@@ -69,15 +84,15 @@ app.post('/register', async (req, res) => {
     try {
         const existingUser = await User.findOne({ username });
         if (existingUser) {
-            return res.status(409).json({ message: 'El nombre de usuario ya existe.' });
+            return res.status(409).json({ message: 'El nombre de usuario ya existe. Por favor, elige otro.' });
         }
 
         const newUser = new User({ username, password, accessCode });
         await newUser.save();
-        res.status(201).json({ message: 'Usuario registrado exitosamente.' });
+        res.status(201).json({ message: 'Usuario registrado exitosamente. Ahora puedes iniciar sesión.' });
     } catch (error) {
-        console.error('Error en el registro:', error);
-        res.status(500).json({ message: 'Error interno del servidor.' });
+        console.error('Error en el registro de usuario:', error);
+        res.status(500).json({ message: 'Error interno del servidor al registrar el usuario. Inténtalo de nuevo.' });
     }
 });
 
@@ -85,33 +100,36 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { username, password, accessCode } = req.body;
 
+    if (!username || !password || !accessCode) {
+        return res.status(400).json({ message: 'Todos los campos son obligatorios.' });
+    }
+
     try {
         const user = await User.findOne({ username });
         if (!user) {
-            return res.status(400).json({ message: 'Credenciales inválidas.' });
+            return res.status(400).json({ message: 'Credenciales inválidas: Usuario no encontrado.' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(400).json({ message: 'Credenciales inválidas.' });
+            return res.status(400).json({ message: 'Credenciales inválidas: Contraseña incorrecta.' });
         }
 
-        // Verificar el código de acceso proporcionado
         if (accessCode !== GLOBAL_ACCESS_CODE) {
             return res.status(400).json({ message: 'Código de acceso incorrecto.' });
         }
         
-        // Aquí podrías generar un token JWT si quisieras mantener la sesión.
-        // Por simplicidad, solo enviamos un mensaje de éxito por ahora.
+        // Si todo es correcto, el inicio de sesión es exitoso
         res.status(200).json({ message: 'Inicio de sesión exitoso.', username: user.username });
     } catch (error) {
-        console.error('Error en el login:', error);
-        res.status(500).json({ message: 'Error interno del servidor.' });
+        console.error('Error en el login de usuario:', error);
+        res.status(500).json({ message: 'Error interno del servidor al iniciar sesión. Inténtalo de nuevo.' });
     }
 });
 
 
 // --- Lógica de Socket.IO existente ---
+const usersInRoom = {}; // Asegúrate de que esta variable esté definida antes de su uso en el socket.on 'join-room'
 io.on('connection', socket => {
     console.log('Nuevo usuario conectado:', socket.id);
 
@@ -125,9 +143,16 @@ io.on('connection', socket => {
             usersInRoom[roomId] = [];
         }
 
-        socket.emit('all-users', usersInRoom[roomId]);
+        // Antes de añadir el usuario, verifica si ya existe en la lista para evitar duplicados
+        const existingUser = usersInRoom[roomId].find(u => u.userId === userId);
+        if (!existingUser) {
+            usersInRoom[roomId].push({ userId, userName });
+        }
+        
+        // Emitir 'room-users' para que el cliente que se une reciba la lista actual
+        socket.emit('room-users', { users: usersInRoom[roomId] });
 
-        usersInRoom[roomId].push({ userId, userName });
+        // Emitir 'user-joined' a todos los demás en la sala
         socket.to(roomId).emit('user-joined', { userId, userName });
         console.log(`Usuario ${userName} (${userId}) se unió a la sala ${roomId}`);
     });
@@ -142,22 +167,20 @@ io.on('connection', socket => {
         console.log(`Reacción de ${socket.userName} en la sala ${socket.room}: ${emoji}`);
     });
 
-    socket.on('screen-share-started', () => {
-        io.to(socket.room).emit('screen-share-active', socket.userId, socket.userName);
-        console.log(`${socket.userName} inició la compartición de pantalla.`);
+    socket.on('start-screen-share', (userId, userName) => {
+        io.to(socket.room).emit('user-started-screen-share', { userId, userName });
+        console.log(`${userName} (${userId}) inició la compartición de pantalla.`);
     });
 
     socket.on('stop-screen-share', () => {
-        io.to(socket.room).emit('screen-share-inactive', socket.userId);
-        console.log(`${socket.userName} detuvo la compartición de pantalla.`);
+        io.to(socket.room).emit('user-stopped-screen-share', socket.userId);
+        console.log(`${socket.userName} (${socket.userId}) detuvo la compartición de pantalla.`);
     });
 
-    // Nuevo evento para cambiar el tema
     socket.on('change-theme', (theme) => {
         io.to(socket.room).emit('theme-changed', theme);
         console.log(`Tema cambiado a ${theme} en la sala ${socket.room} por ${socket.userName}`);
     });
-
 
     socket.on('disconnect', () => {
         console.log('User disconnected: ' + socket.userName + ' (' + socket.userId + ')');
