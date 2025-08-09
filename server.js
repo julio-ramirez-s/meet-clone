@@ -12,9 +12,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions)); 
 
-// --- Middleware para parsear JSON en el cuerpo de las solicitudes HTTP ---
-app.use(express.json());
-
 // --- Configuración de Socket.IO ---
 const io = require('socket.io')(server, {
     cors: corsOptions 
@@ -22,12 +19,12 @@ const io = require('socket.io')(server, {
 
 // --- Configuración de PeerJS ---
 const peerServer = ExpressPeerServer(server, {
-    path: '/myapp' // Asegúrate de que este path coincida con la configuración del cliente
+    path: '/myapp'
 });
 app.use('/peerjs', peerServer);
 
-// --- Lógica de la aplicación Socket.IO ---
-const usersInRoom = {}; // { roomId: [{ userId, userName }, ...] }
+// --- Lógica de la aplicación ---
+const usersInRoom = {};
 
 io.on('connection', socket => {
     console.log('Nuevo usuario conectado:', socket.id);
