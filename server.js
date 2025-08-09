@@ -3,6 +3,8 @@ const cors = require('cors');
 const app = express();
 const server = require('http').Server(app);
 const { ExpressPeerServer } = require('peer');
+const mongoose = require('mongoose'); // Importar Mongoose
+const bcrypt = require('bcryptjs'); // Importar bcryptjs para hashing de contraseñas
 
 // --- Configuración de CORS ---
 const corsOptions = {
@@ -11,6 +13,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions)); 
+app.use(express.json()); // Habilitar el parsing de JSON en el cuerpo de las solicitudes
 
 // --- Configuración de Socket.IO ---
 const io = require('socket.io')(server, {
@@ -23,9 +26,92 @@ const peerServer = ExpressPeerServer(server, {
 });
 app.use('/peerjs', peerServer);
 
+// --- Conexión a MongoDB ---
+const MONGODB_URI = "mongodb+srv://julioramirezs2008:JDRS2008@cluster0.mvtvanq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0";
+
+mongoose.connect(MONGODB_URI)
+    .then(() => console.log('Conectado a MongoDB Atlas'))
+    .catch(err => console.error('Error al conectar a MongoDB:', err));
+
+// --- Esquema y Modelo de Usuario ---
+const userSchema = new mongoose.Schema({
+    username: { type: String, required: true, unique: true },
+    password: { type: String, required: true },
+    accessCode: { type: String, required: true } // Campo para el código de acceso
+});
+
+// Middleware para hashear la contraseña antes de guardar
+userSchema.pre('save', async function (next) {
+    if (this.isModified('password')) {
+        this.password = await bcrypt.hash(this.password, 10);
+    }
+    next();
+});
+
+const User = mongoose.model('User', userSchema);
+
 // --- Lógica de la aplicación ---
 const usersInRoom = {};
+const GLOBAL_ACCESS_CODE = "MundiLink2025"; // Código de acceso global para unirse a la app
 
+// --- Rutas de Autenticación ---
+
+// Ruta de Registro
+app.post('/register', async (req, res) => {
+    const { username, password, accessCode } = req.body;
+
+    // Verificar si el accessCode coincide con el código global o uno específico si hubiera
+    // En este caso, el accessCode ingresado por el usuario debe coincidir con GLOBAL_ACCESS_CODE
+    if (accessCode !== GLOBAL_ACCESS_CODE) {
+        return res.status(400).json({ message: 'Código de acceso incorrecto.' });
+    }
+
+    try {
+        const existingUser = await User.findOne({ username });
+        if (existingUser) {
+            return res.status(409).json({ message: 'El nombre de usuario ya existe.' });
+        }
+
+        const newUser = new User({ username, password, accessCode });
+        await newUser.save();
+        res.status(201).json({ message: 'Usuario registrado exitosamente.' });
+    } catch (error) {
+        console.error('Error en el registro:', error);
+        res.status(500).json({ message: 'Error interno del servidor.' });
+    }
+});
+
+// Ruta de Inicio de Sesión
+app.post('/login', async (req, res) => {
+    const { username, password, accessCode } = req.body;
+
+    try {
+        const user = await User.findOne({ username });
+        if (!user) {
+            return res.status(400).json({ message: 'Credenciales inválidas.' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ message: 'Credenciales inválidas.' });
+        }
+
+        // Verificar el código de acceso proporcionado
+        if (accessCode !== GLOBAL_ACCESS_CODE) {
+            return res.status(400).json({ message: 'Código de acceso incorrecto.' });
+        }
+        
+        // Aquí podrías generar un token JWT si quisieras mantener la sesión.
+        // Por simplicidad, solo enviamos un mensaje de éxito por ahora.
+        res.status(200).json({ message: 'Inicio de sesión exitoso.', username: user.username });
+    } catch (error) {
+        console.error('Error en el login:', error);
+        res.status(500).json({ message: 'Error interno del servidor.' });
+    }
+});
+
+
+// --- Lógica de Socket.IO existente ---
 io.on('connection', socket => {
     console.log('Nuevo usuario conectado:', socket.id);
 
@@ -68,7 +154,6 @@ io.on('connection', socket => {
 
     // Nuevo evento para cambiar el tema
     socket.on('change-theme', (theme) => {
-        // Emitir el cambio de tema a todos en la misma sala, incluido el emisor
         io.to(socket.room).emit('theme-changed', theme);
         console.log(`Tema cambiado a ${theme} en la sala ${socket.room} por ${socket.userName}`);
     });
