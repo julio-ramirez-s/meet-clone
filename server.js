@@ -39,46 +39,31 @@ io.on('connection', socket => {
             usersInRoom[roomId] = [];
         }
 
-        // Emitir a solo el usuario que se une la lista de usuarios existentes en la sala
-        socket.emit('room-users', { users: usersInRoom[roomId] });
+        socket.emit('all-users', usersInRoom[roomId]);
 
         usersInRoom[roomId].push({ userId, userName });
-        
-        // Emitir a todos en la sala (excepto al que se acaba de unir) que un nuevo usuario se unió
         socket.to(roomId).emit('user-joined', { userId, userName });
-
-        console.log(`Usuario ${userName} (${userId}) se unió a la sala ${roomId}.`);
-        console.log(`Usuarios en la sala ${roomId}:`, usersInRoom[roomId].map(u => u.userName));
+        console.log(`Usuario ${userName} (${userId}) se unió a la sala ${roomId}`);
     });
 
-    // Evento para recibir y retransmitir mensajes de chat
     socket.on('message', message => {
         io.to(socket.room).emit('createMessage', message, socket.userName);
         console.log(`Mensaje de ${socket.userName} en ${socket.room}: ${message}`);
     });
 
-    // Evento para recibir y retransmitir reacciones
     socket.on('reaction', (emoji) => {
         io.to(socket.room).emit('reaction-received', emoji, socket.userName);
         console.log(`Reacción de ${socket.userName} en la sala ${socket.room}: ${emoji}`);
     });
 
-    // Evento cuando un usuario inicia la compartición de pantalla
-    socket.on('start-screen-share', (userId, userName) => {
-        io.to(socket.room).emit('user-started-screen-share', { userId, userName });
-        console.log(`${userName} inició la compartición de pantalla.`);
+    socket.on('screen-share-started', () => {
+        io.to(socket.room).emit('screen-share-active', socket.userId, socket.userName);
+        console.log(`${socket.userName} inició la compartición de pantalla.`);
     });
 
-    // Evento cuando un usuario detiene la compartición de pantalla
-    socket.on('stop-screen-share', (userId) => {
-        io.to(socket.room).emit('user-stopped-screen-share', userId);
+    socket.on('stop-screen-share', () => {
+        io.to(socket.room).emit('screen-share-inactive', socket.userId);
         console.log(`${socket.userName} detuvo la compartición de pantalla.`);
-    });
-
-    // Nuevo evento para manejar el cambio de tema
-    socket.on('change-theme', (theme) => {
-        io.to(socket.room).emit('theme-changed', theme);
-        console.log(`Tema cambiado a ${theme} por ${socket.userName} en la sala ${socket.room}.`);
     });
 
 
@@ -87,13 +72,12 @@ io.on('connection', socket => {
         if (socket.room && socket.userId) { 
             usersInRoom[socket.room] = usersInRoom[socket.room].filter(user => user.userId !== socket.userId);
             socket.to(socket.room).emit('user-disconnected', socket.userId, socket.userName);
-            console.log(`Usuario ${socket.userName} (${socket.userId}) abandonó la sala ${socket.room}.`);
-            console.log(`Usuarios restantes en la sala ${socket.room}:`, usersInRoom[socket.room].map(u => u.userName));
+            console.log(`Usuario ${socket.userName} (${socket.userId}) se desconectó de la sala ${socket.room}`);
         }
     });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-    console.log(`Servidor escuchando en el puerto ${PORT}`);
+    console.log(`Server listening on port ${PORT}`);
 });
