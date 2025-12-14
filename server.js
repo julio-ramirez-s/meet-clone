@@ -66,6 +66,13 @@ io.on('connection', socket => {
         console.log(`${socket.userName} detuvo la compartición de pantalla.`);
     });
 
+    // Nuevo evento para cambiar el tema
+    socket.on('change-theme', (theme) => {
+        // Emitir el cambio de tema a todos en la misma sala, incluido el emisor
+        io.to(socket.room).emit('theme-changed', theme);
+        console.log(`Tema cambiado a ${theme} en la sala ${socket.room} por ${socket.userName}`);
+    });
+
 
     socket.on('disconnect', () => {
         console.log('User disconnected: ' + socket.userName + ' (' + socket.userId + ')');
