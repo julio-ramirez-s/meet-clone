@@ -5,13 +5,11 @@ const server = require('http').Server(app);
 const { ExpressPeerServer } = require('peer');
 
 // --- Configuración de CORS ---
-// NOTA: Para un despliegue en Render/producción, esta URL debe ser la de tu frontend.
-// Para desarrollo local, podrías necesitar cambiarla a 'http://localhost:3000' u otras.
 const corsOptions = {
     origin: 'https://meet-front.onrender.com', // La URL de tu frontend
     methods: ['GET', 'POST']
 };
- 
+
 app.use(cors(corsOptions)); 
 
 // --- Configuración de Socket.IO ---
@@ -20,13 +18,10 @@ const io = require('socket.io')(server, {
 });
 
 // --- Configuración de PeerJS ---
-// CORRECCIÓN CLAVE: Se monta PeerJS en la ruta raíz ('/') en lugar de '/peerjs' 
-// para que coincida con la configuración del cliente en App.js (path: '/') y 
-// evitar errores 404 en el servidor de Render.
 const peerServer = ExpressPeerServer(server, {
-    path: '/myapp' // El path interno de PeerJS, pero la URL de montaje es la siguiente línea.
+    path: '/myapp'
 });
-app.use('/', peerServer); // CAMBIO: Montaje en la raíz
+app.use('/peerjs', peerServer);
 
 // --- Lógica de la aplicación ---
 const usersInRoom = {};
@@ -44,36 +39,20 @@ io.on('connection', socket => {
             usersInRoom[roomId] = [];
         }
 
-        // Enviar la lista de usuarios existentes al nuevo usuario
         socket.emit('all-users', usersInRoom[roomId]);
 
         usersInRoom[roomId].push({ userId, userName });
-        
-        // Informar a los demás usuarios sobre la nueva conexión
-        socket.to(roomId).emit('user-connected', userId, userName);
-        
+        socket.to(roomId).emit('user-joined', { userId, userName });
         console.log(`Usuario ${userName} (${userId}) se unió a la sala ${roomId}`);
     });
-    
-    // Nuevo evento para solicitar información de un usuario
-    socket.on('get-user-info', (targetUserId) => {
-        // Encontrar la información del usuario que está solicitando
-        const userInfo = usersInRoom[socket.room]?.find(u => u.userId === socket.userId);
-        if (userInfo) {
-            // Enviar la información de vuelta al usuario que realizó la llamada (targetUserId)
-            socket.to(targetUserId).emit('user-info', { userId: socket.userId, userName: userInfo.userName });
-        }
+
+    socket.on('message', message => {
+        io.to(socket.room).emit('createMessage', message, socket.userName);
+        console.log(`Mensaje de ${socket.userName} en ${socket.room}: ${message}`);
     });
 
-    // Evento de chat
-    socket.on('chat-message', (message) => {
-        // Reenviar el mensaje a todos en la sala, incluido el emisor
-        io.to(socket.room).emit('chat-message', message);
-    });
-
-    // Evento de reacción (emojis)
     socket.on('reaction', (emoji) => {
-        io.to(socket.room).emit('reaction', socket.userId, emoji);
+        io.to(socket.room).emit('reaction-received', emoji, socket.userName);
         console.log(`Reacción de ${socket.userName} en la sala ${socket.room}: ${emoji}`);
     });
 
@@ -98,16 +77,14 @@ io.on('connection', socket => {
     socket.on('disconnect', () => {
         console.log('User disconnected: ' + socket.userName + ' (' + socket.userId + ')');
         if (socket.room && socket.userId) { 
-            // Eliminar al usuario de la lista
             usersInRoom[socket.room] = usersInRoom[socket.room].filter(user => user.userId !== socket.userId);
-            // Notificar a los demás usuarios
             socket.to(socket.room).emit('user-disconnected', socket.userId, socket.userName);
-            console.log(`Usuario ${socket.userName} (${socket.userId}) abandonó la sala ${socket.room}.`);
+            console.log(`Usuario ${socket.userName} (${socket.userId}) se desconectó de la sala ${socket.room}`);
         }
     });
 });
 
-const PORT = process.env.PORT || 9000;
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
 });
