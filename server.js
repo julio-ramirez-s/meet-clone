@@ -6,7 +6,7 @@ const { ExpressPeerServer } = require('peer');
 
 // --- Configuración de CORS ---
 const corsOptions = {
-    origin: 'https://meet-front.onrender.com', // La URL de tu frontend
+    origin: '*', // La URL de tu frontend
     methods: ['GET', 'POST']
 };
 
